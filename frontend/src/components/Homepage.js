@@ -92,7 +92,7 @@ export const Workpanel = (props) => {
             y: (coordinates.y - initialCoordinates.y < 0) ? (coordinates.y) : (initialCoordinates.y),
             width: Math.abs(coordinates.x - initialCoordinates.x),
             height: Math.abs(coordinates.y - initialCoordinates.y),
-            class: ""
+            label: ""
         })
         setBoxes(temp);
         setMouseIsDown(false);
@@ -162,20 +162,20 @@ export const Workpanel = (props) => {
         context.strokeStyle = 'blue';
 
         for(let i = 0; i < boxes.length; i++){
-            if(boxes[i].class !== ""){
+            if(boxes[i].label !== ""){
                 const font = "10px sans-serif";
                 context.font = font;
                 context.textBaseline = "top";
     
                 // Label background
                 context.fillStyle = "#00FFFF";
-                const textWidth = context.measureText(boxes[i].class).width;
+                const textWidth = context.measureText(boxes[i].label).width;
                 const textHeight = parseInt(font, 10); // base 10
                 context.fillRect(boxes[i].x, boxes[i].y, textWidth + 4, textHeight + 4);
     
                 // Labels
                 context.fillStyle = "#000000";
-                context.fillText(boxes[i].class, boxes[i].x + 2, boxes[i].y + 2);
+                context.fillText(boxes[i].label, boxes[i].x + 2, boxes[i].y + 2);
             }
 
             context.strokeRect(boxes[i].x, boxes[i].y, boxes[i].width, boxes[i].height);
@@ -214,14 +214,14 @@ export const Workpanel = (props) => {
         return null;
     }
 
-    const updateClass = (e) => {
+    const updateLabel = (i, label) => {
         let temp = [...boxes];
 
-        temp[selectedBox].class = e.target.value;
+        temp[i].label = label;
         setBoxes(temp);
     }
 
-    const onClickDelete = (i) => {
+    const deleteBox = (i) => {
         let temp = [...boxes];
 
         temp.splice(i, 1);
@@ -260,14 +260,14 @@ export const Workpanel = (props) => {
                         (selectedBox !== null) ? (
                             <Form>
                                 <Form.Group as={Col} xs="12" md="6">
-                                    <Form.Label>Class</Form.Label>
-                                    <Form.Control as="select" value={boxes[selectedBox].class} onChange={(e) => {updateClass(e)}}>
+                                    <Form.Label>Label</Form.Label>
+                                    <Form.Control as="select" value={boxes[selectedBox].label} onChange={(e) => {updateLabel(selectedBox, e.target.value)}}>
                                         <option value=""></option>
                                         <option value="Cat">Cat</option>
                                         <option value="Dog">Dog</option>    
                                         <option value="Fish">Fish</option>    
                                     </Form.Control>
-                                    <Button onClick={() => {onClickDelete(selectedBox)}}>Delete</Button>
+                                    <Button onClick={() => {deleteBox(selectedBox)}}>Delete</Button>
                                 </Form.Group>
                             </Form>
                         ) : ("")
