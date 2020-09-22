@@ -9,13 +9,12 @@ import {
 } from 'react-bootstrap';
 import bsCustomFileInput from 'bs-custom-file-input'
 
-import wallpaper from '../assets/images/wallpaper.jpg';
+import placeholderImg from '../assets/images/placeholder.jpg';
 
 export default function Homepage() {
 
     return(
-        <Container>
-            <img src={wallpaper} id="wallpaper_img" alt="wallpaper"></img>
+        <Container className="pt-3">
             <Row>
                 <Col>
                     <Workpanel/>
@@ -51,8 +50,9 @@ export const Workpanel = (props) => {
         ]
     */
 
-    let canvasRef = React.useRef();
     let imageRef = React.useRef();
+    let canvasRef = React.useRef();
+    let selectedCanvasRef = React.useRef();
 
     React.useEffect(() => {
         bsCustomFileInput.init()
@@ -66,6 +66,7 @@ export const Workpanel = (props) => {
     //     setCoordinates({x:x,y:y})
     // }
 
+    // ------------------ Start of Canvas interactions functions ---------------------
     const canvasMouseMove = (e) => {
         setCoordinates(getCoordinates(e))
     }
@@ -79,7 +80,6 @@ export const Workpanel = (props) => {
         // check, if no drag = mouseclick
         let threshold = 10;
         if(Math.abs(coordinates.x - initialCoordinates.x) + Math.abs(coordinates.y - initialCoordinates.y) < threshold){
-            canvasMouseClick(e);
             setMouseIsDown(false);
             setSelectedBox(calculateSelection(coordinates, boxes));
             return;
@@ -104,40 +104,32 @@ export const Workpanel = (props) => {
         setMouseIsDown(false);
     }
 
-    const canvasMouseClick = (e) => {
-
+    const getCoordinates = (e) => {
+        let rect = e.target.getBoundingClientRect()
+        let x = parseInt(e.clientX - rect.left);
+        let y = parseInt(e.clientY - rect.top);
+        let coordinates = {x:x,y:y}
+        return coordinates;
     }
 
-    const onImageLoad = (e) => {
-        setWidth(e.target.width);
-        setHeight(e.target.height);
+    const calculateSelection = (coordinates, boxes) => {
+        for(let i = 0; i < boxes.length; i++){
+            if(
+                coordinates.x >= boxes[i].x &&
+                coordinates.x <= boxes[i].x + boxes[i].width &&
+                coordinates.y >= boxes[i].y &&
+                coordinates.y <= boxes[i].y + boxes[i].height
+            ){
+                return i;
+            }
+        }
+
+        return null;
     }
 
-    React.useEffect(() => {
-        let context = canvasRef.current.getContext("2d");
+    // ------------------ End of Canvas interactions functions ---------------------
 
-        context.clearRect(0,0, canvasRef.current.width, canvasRef.current.height);
-        context.drawImage(
-            imageRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height
-        )
-
-        drawBoxes(canvasRef.current, boxes);
-
-        if(selectedBox !== null){
-            drawSelectedBox(canvasRef.current, boxes[selectedBox]);
-        }
-
-        if(mouseIsDown){
-            
-            context.beginPath();
-            context.strokeStyle = 'red';
-            context.strokeRect(initialCoordinates.x, initialCoordinates.y, coordinates.x - initialCoordinates.x, coordinates.y - initialCoordinates.y);
-        }
-
-        drawCrosshair(canvasRef.current, coordinates);
-
-    }, [imageFile, boxes, coordinates, initialCoordinates, mouseIsDown, selectedBox]);
-
+    // ------------------ Start of Drawing functions ---------------------
     const drawCrosshair = (target, coordinates) => {
         let context = target.getContext("2d");
 
@@ -191,27 +183,59 @@ export const Workpanel = (props) => {
         context.strokeRect(box.x, box.y, box.width, box.height);
     }
 
-    const getCoordinates = (e) => {
-        let rect = e.target.getBoundingClientRect()
-        let x = parseInt(e.clientX - rect.left);
-        let y = parseInt(e.clientY - rect.top);
-        let coordinates = {x:x,y:y}
-        return coordinates;
+    const drawSelectedImage = (sourceImg, sourceCanvas, target, box) => {
+        target.width = sourceCanvas.width * 0.5;
+        target.height = sourceCanvas.height * 0.5;
+
+        let dim = getScaledDimensions(
+            box.width * sourceImg.naturalWidth/sourceCanvas.width,
+            box.height * sourceImg.naturalHeight/sourceCanvas.height,
+            target.width,
+            target.height
+        );
+
+        target.getContext("2d").drawImage(
+            sourceImg,
+            box.x * sourceImg.naturalWidth/sourceCanvas.width,
+            box.y * sourceImg.naturalHeight/sourceCanvas.height,
+            box.width * sourceImg.naturalWidth/sourceCanvas.width,
+            box.height * sourceImg.naturalHeight/sourceCanvas.height,
+            (target.width - dim.width)/2,
+            (target.height - dim.height)/2,
+            dim.width,
+            dim.height
+        );
+
     }
 
-    const calculateSelection = (coordinates, boxes) => {
-        for(let i = 0; i < boxes.length; i++){
-            if(
-                coordinates.x >= boxes[i].x &&
-                coordinates.x <= boxes[i].x + boxes[i].width &&
-                coordinates.y >= boxes[i].y &&
-                coordinates.y <= boxes[i].y + boxes[i].height
-            ){
-                return i;
-            }
+    const getScaledDimensions = (sourceWidth, sourceHeight, targetWidth, targetHeight) => {
+        var wrh = sourceWidth / sourceHeight;
+        var newWidth = targetWidth;
+        var newHeight = newWidth / wrh;
+        if (newHeight > targetHeight) {
+            newHeight = targetHeight;
+            newWidth = newHeight * wrh;
         }
+        return {width: newWidth, height: newHeight};
+    }
+    // ------------------ End of Drawing functions ---------------------
+    
+    // ------------------ Start of user interaction functions ---------------------
+    const onChangeFile = (e) => {
+        if(e.target.files && e.target.files.length){
+            setImageFile(e.target.files[0]);
+            setBoxes([]);
+            setSelectedBox(null);
+        }
+    }
 
-        return null;
+    const onImageLoad = (e) => {
+        console.log("loaded")
+        setWidth(e.target.width);
+        setHeight(e.target.height);
+        if(selectedBox !== null){
+            drawSelectedImage(imageRef.current, canvasRef.current, selectedCanvasRef.current, boxes[selectedBox])
+        }
     }
 
     const updateLabel = (i, label) => {
@@ -228,12 +252,35 @@ export const Workpanel = (props) => {
         setBoxes(temp);
         setSelectedBox(null);
     }
+    // ------------------ Start of user interaction functions ---------------------
 
-    const onChangeFile = (e) => {
-        if(e.target.files && e.target.files.length){
-            setImageFile(e.target.files[0]);
+    React.useEffect(() => {
+        if(canvasRef.current === undefined){
+            return;
         }
-    }
+        let context = canvasRef.current.getContext("2d");
+
+        context.clearRect(0,0, canvasRef.current.width, canvasRef.current.height);
+        context.drawImage(
+            imageRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height
+        )
+
+        drawBoxes(canvasRef.current, boxes);
+
+        if(selectedBox !== null){
+            drawSelectedBox(canvasRef.current, boxes[selectedBox]);
+        }
+
+        if(mouseIsDown){
+            
+            context.beginPath();
+            context.strokeStyle = 'red';
+            context.strokeRect(initialCoordinates.x, initialCoordinates.y, coordinates.x - initialCoordinates.x, coordinates.y - initialCoordinates.y);
+        }
+
+        drawCrosshair(canvasRef.current, coordinates);
+
+    }, [imageFile, boxes, coordinates, initialCoordinates, mouseIsDown, selectedBox]);
 
     return(
     <>
@@ -244,22 +291,31 @@ export const Workpanel = (props) => {
         <Container>
             <Row>
                 <Col md="6">
-                    <img className="draw_image" ref={imageRef} alt="temp" style={{width:"100%"}}
-                        src={(imageFile === null) ? ("") : (URL.createObjectURL(imageFile))}
-                        onLoad={(e) => {onImageLoad(e)}}
-                    />
-                    <canvas ref={canvasRef} className="border" width={width} height={height}
-                        onMouseMove={(e) => {canvasMouseMove(e)}}
-                        onMouseDown={(e) => {canvasMouseDown(e)}}
-                        onMouseUp={(e) => {canvasMouseUp(e)}}
-                        onMouseOut={(e) => {canvasMouseOut(e)}}
-                    />
+                    {
+                        (imageFile === null) ? (
+                            <img src={placeholderImg} alt="placeholderImg" style={{width: "100%", height:"auto"}}/>
+                        ):(
+                            <>
+                                <img className="draw_image" ref={imageRef} alt="temp" style={{width:"100%"}}
+                                    src={URL.createObjectURL(imageFile)}
+                                    onLoad={(e) => {onImageLoad(e)}}
+                                />
+                                <canvas ref={canvasRef} className="border" width={width} height={height}
+                                    onMouseMove={(e) => {canvasMouseMove(e)}}
+                                    onMouseDown={(e) => {canvasMouseDown(e)}}
+                                    onMouseUp={(e) => {canvasMouseUp(e)}}
+                                    onMouseOut={(e) => {canvasMouseOut(e)}}
+                                />
+                            </>
+                        )
+                    }
                 </Col>
                 <Col md="6">
                     {
                         (selectedBox !== null) ? (
                             <Form>
                                 <Form.Group as={Col} xs="12" md="6">
+                                    <canvas ref={selectedCanvasRef} className="border" />
                                     <Form.Label>Label</Form.Label>
                                     <Form.Control as="select" value={boxes[selectedBox].label} onChange={(e) => {updateLabel(selectedBox, e.target.value)}}>
                                         <option value=""></option>
@@ -267,7 +323,7 @@ export const Workpanel = (props) => {
                                         <option value="Dog">Dog</option>    
                                         <option value="Fish">Fish</option>    
                                     </Form.Control>
-                                    <Button onClick={() => {deleteBox(selectedBox)}}>Delete</Button>
+                                    <Button className="mt-3" onClick={() => {deleteBox(selectedBox)}}>Delete</Button>
                                 </Form.Group>
                             </Form>
                         ) : ("")
